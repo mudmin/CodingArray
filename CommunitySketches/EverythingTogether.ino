@@ -146,7 +146,7 @@ void loop() {
   //부저울림 시작
   if (mil > buzt) {
     buzt = mil + 700;
-    tone(buz, bar * 1.3 + 50, 40);
+//    tone(buz, bar * 1.3 + 50, 40);
   }
 
 
