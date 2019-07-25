@@ -460,14 +460,14 @@ void mario() {
     // divided by the note type.
     //e.g. quarter note = 1000 / 4, eighth note = 1000/8, etc.
     int noteDuration = 500 / Mario_Notes[thisNote];
-    tone(6, Mario_melody[thisNote], noteDuration);
+    tone(buz, Mario_melody[thisNote], noteDuration);
 
     // to distinguish the notes, set a minimum time between them.
     // the note's duration + 30% seems to work well:
     int pauseBetweenNotes = noteDuration * 1.30;
     delay(pauseBetweenNotes);
     // stop the tone playing:
-    noTone(6);
+    notone(buz);
   }
 
 }
@@ -586,7 +586,7 @@ void tetris() {
       e.g. quarter note = 1000 / 4, eighth note = 1000/8, etc.
     */
     int noteDuration = 1000 / pgm_read_word(&noteDurations[thisNote]); /* Changed to use progmem */
-    tone(6, pgm_read_word(&melody[thisNote]), noteDuration);
+    tone(buz, pgm_read_word(&melody[thisNote]), noteDuration);
 
     /*
       to distinguish the notes, set a minimum time between them.
@@ -595,7 +595,7 @@ void tetris() {
     int pauseBetweenNotes = noteDuration * 1.30;
     delay(pauseBetweenNotes);
 
-    noTone(6); //stop the tone playing:
+    notone(buz); //stop the tone playing:
   }
   digitalWrite(6, LOW);
 }

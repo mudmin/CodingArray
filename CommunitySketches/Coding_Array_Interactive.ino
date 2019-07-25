@@ -11,6 +11,21 @@ DHT dht(DHTPIN, DHTTYPE);
 #include <LiquidCrystal_I2C.h>        //Special library for the LCD screen
 LiquidCrystal_I2C lcd(0x27, 16, 2);   //The address of the LCD Screen and how many columns/rows it has
 
+//This is Dan's interactive mode.
+//0 is the default mode where everything works as normal in the Everything together sketch
+//1 will accept input from Node-red or the serial monitor's input.
+int mode = 0;
+
+//sounds for switching modes
+int melody[] = {
+  NOTE_C4, NOTE_G3, NOTE_G3, NOTE_A3, NOTE_G3, 0, NOTE_B3, NOTE_C4
+};
+
+// note durations: 4 = quarter note, 8 = eighth note, etc.:
+int noteDurations[] = {
+  4, 8, 8, 4, 4, 4, 4, 4
+};
+
 ///////////////////////////
 //this section tells the Arduino what pins the sensors are connected to
 
@@ -45,6 +60,8 @@ int bar = 0;
 
 //The code in the setup function is run once on boot
 void setup() {
+  Serial.begin(9600);           //Setup the serial port to begin at 9600bps
+  Serial.println("mode=Standard Mode");
 //Give the Arduino some basic information on what the pins we declared above actually do
   pinMode(echo, INPUT);         //Ultrasonic sensor echo pin
   pinMode(trigger, OUTPUT);     //Ultrasonic sensor trigger pin
@@ -64,7 +81,6 @@ void setup() {
   lcd.init();                  //Startup the LCD
   lcd.backlight();             //Turn on the LCD baclight
 
-
   bar = analogRead(A0);        //Read the position of the slider bar once on boot
   intro();                     //Run the intro function (defined below) that runs on boot
 
@@ -81,115 +97,144 @@ void setup() {
 
 
 void loop() {
-  //Whatever you put inside this loop will keep running repeatedly
-
-//Set up some variables that get cleared out every time the code loops over
-  float Duration, Distance;
-
-
-//The number of milliseconds since the Arduino booted
-  mil = millis();
-
-
-//Read the position of the slider bar
-  bar = analogRead(A0);
-
-
-//Move the servo based on the position of the slider bar
-  myservo.write(180 - int(bar / 5.68));
-
-
-
-  //Ultrasonic Sensor Reading
-  if (mil > dist) {
-    dist = mil + 200;
-    digitalWrite(trigger, LOW);                                  //Make sure the trigger is off
-    delayMicroseconds(2);                                        //Wait 2 microseconds
-    digitalWrite(trigger, HIGH);                                 //Shoot off a pulse of ultrasound
-    delayMicroseconds(10);                                       //Keep shooting for 10 microseconds
-    digitalWrite(trigger, LOW);                                  //Stop shooting
-    Duration = pulseIn(echo, HIGH);                              //See how long it took to receive the reflected sound
-    Distance = ((float)(340 * Duration) / 10000) / 2;            //Calculate the distance based on the time it took to receive the signal
-    lcd.setCursor(10, 1);                                        //Print the distance on the second (1) line of the LCD in the 10th position
-    if (Distance < 100) {
-      lcd.print(Distance, 10);
-    } else {
-      lcd.print(" ");
-      lcd.print(int(Distance));
-    }
-    lcd.setCursor(14, 1);
-    lcd.print("cm");                                              //Move the cursor and print cm
+if(analogRead(hall) < 480){  //look for a magnet near the hall effect sensor if one is found
+  if(mode == 0){             //if you are in mode 0, switch to 1
+    mode = 1;
+  }else{
+    mode = 0;
   }
-
-//Pushbutton - If the button is pushed, light up the single led. If not, turn it off
-//Buzzer - If the button is pushed, play a quick tone
-  if (digitalRead(pushbutton) == HIGH) {
-    digitalWrite(led, HIGH);
-    tone(buz, bar * 1.3 + 50, 40);
-  } else {
-    digitalWrite(led, LOW);
+  digitalWrite(led,HIGH);           //Turn on the single LED
+  changeMode() ;                    //Play a tone
+  delay(1000);                      //Give time to take the magnet away
+  digitalWrite(led, LOW);           //Turn off the single LED
+  lcd.clear();                      //Reset the screen
+  lcd.setCursor(0, 0);
+  if(mode == 0){
+    lcd.print("Standard");
+    Serial.println("mode=Standard Mode");
+  }else{
+    lcd.print("Interactive");
+    Serial.println("mode=Interactive Mode");
   }
-
-
-  //Temperature & Humidity
-  if (mil > lcdt) {
-    lcdt = mil + 5000;                //Read the temperature every 5 seconds (5000 milliseconds)
-    lcd.setCursor(3, 0);              //Move the cursor to the top row (0), 3rd position
-    temp = dht.readTemperature();     //Read the temperature sensor and assign it to the temp variable
-    if (temp < 10) {                  //If temp < 10 put a space to make the spacing nice on the screen
-      lcd.print(" ");
-    }
-    lcd.print(int(temp));             //Print the temperature to the screen
-    lcd.setCursor(11, 0);             //Move the cursor to the top row, 11th position
-    humi = dht.readHumidity();        //Get the humidity and assign it to the humi variable
-    if (humi < 10) {
-      lcd.print(" ");                 //Add a space if the humidity is less than 10%
-    }
-    lcd.print(int(humi));             //Print the humidity to the lcd
-  }
-
-  //Photocell (measure light)
-  if (mil > lit) {
-    lit = mil + 2000;                 //Measure light every 2 seconds (2000 milliseconds)
-    lcd.setCursor(0, 1);              //Set the cursor to the left side of the second line (1)
-    if (analogRead(A1) > 700) {
-      lcd.print("Bright   ");            //If you get a reading of > 700, write Bright on the LCD
-    } else if (analogRead(A1) > 550) {
-      lcd.print("Normal   ");            //If the reading is > 550 and < or = to 700, write Normal
-    } else {
-      lcd.print("Dark     ");            //If the reading is below 500, write Dark
-    }
-  }
-
-
-  //RGB led
-  //If either the touch sensor is touched or the magnet sensor detects a magnet, scroll through the RGB LED, otherwise, turn it off
-  if (digitalRead(touch) == HIGH || analogRead(hall) < 480) {
-    if (mil > ledt) {
-      ledt = mil + 120;
-      leds++;
-      if (leds == 1) {
-        digitalWrite(9, HIGH);
-        digitalWrite(11, LOW);
-      } else if (leds == 2) {
-        digitalWrite(10, HIGH);
-        digitalWrite(9, LOW);
-      } else {
-        digitalWrite(11, HIGH);
-        digitalWrite(10, LOW);
-      }
-      if (leds == 3) {
-        leds = 0;
-      }
-    }
-  } else {
-    digitalWrite(9, LOW);
-    digitalWrite(10, LOW);
-    digitalWrite(11, LOW);
-  }
+  lcd.setCursor(0, 1);
+  lcd.print("Mode Activated");
 }
 
 
+    if(mode == 0){
+      standard();
+    }else{
+      interactive();
+    }
+}
+
+void standard(){ //This is the standard "mode" that coding array boots into
+  //Set up some variables that get cleared out every time the code loops over
+    float Duration, Distance;
+
+
+  //The number of milliseconds since the Arduino booted
+    mil = millis();
+
+
+  //Read the position of the slider bar
+    bar = analogRead(A0);
+
+
+  //Move the servo based on the position of the slider bar
+    myservo.write(180 - int(bar / 5.68));
+
+  //Ultrasonic Sensor Reading
+    if (mil > dist) {
+      dist = mil + 200;
+      digitalWrite(trigger, LOW);                                  //Make sure the trigger is off
+      delayMicroseconds(2);                                        //Wait 2 microseconds
+      digitalWrite(trigger, HIGH);                                 //Shoot off a pulse of ultrasound
+      delayMicroseconds(10);                                       //Keep shooting for 10 microseconds
+      digitalWrite(trigger, LOW);                                  //Stop shooting
+      Duration = pulseIn(echo, HIGH);                              //See how long it took to receive the reflected sound
+      Distance = ((float)(340 * Duration) / 10000) / 2;            //Calculate the distance based on the time it took to receive the signal
+      lcd.setCursor(10, 1);                                        //Print the distance on the second (1) line of the LCD in the 10th position
+      if (Distance < 100) {
+        lcd.print(Distance, 10);
+      } else {
+        lcd.print(" ");
+        lcd.print(int(Distance));
+      }
+      lcd.setCursor(14, 1);
+      lcd.print("cm");                                              //Move the cursor and print cm
+    }
+
+  //Pushbutton - If the button is pushed, light up the single led. If not, turn it off
+  //Buzzer - If the button is pushed, play a quick tone
+    if (digitalRead(pushbutton) == HIGH) {
+      digitalWrite(led, HIGH);
+      tone(buz, bar * 1.3 + 50, 40);
+    } else {
+      digitalWrite(led, LOW);
+    }
+
+
+    //Temperature & Humidity
+    if (mil > lcdt) {
+      lcdt = mil + 5000;                //Read the temperature every 5 seconds (5000 milliseconds)
+      lcd.setCursor(3, 0);              //Move the cursor to the top row (0), 3rd position
+      temp = dht.readTemperature();     //Read the temperature sensor and assign it to the temp variable
+      if (temp < 10) {                  //If temp < 10 put a space to make the spacing nice on the screen
+        lcd.print(" ");
+      }
+      lcd.print(int(temp));             //Print the temperature to the screen
+      lcd.setCursor(11, 0);             //Move the cursor to the top row, 11th position
+      humi = dht.readHumidity();        //Get the humidity and assign it to the humi variable
+      if (humi < 10) {
+        lcd.print(" ");                 //Add a space if the humidity is less than 10%
+      }
+      lcd.print(int(humi));             //Print the humidity to the lcd
+    }
+
+    //Photocell (measure light)
+    if (mil > lit) {
+      lit = mil + 2000;                 //Measure light every 2 seconds (2000 milliseconds)
+      lcd.setCursor(0, 1);              //Set the cursor to the left side of the second line (1)
+      if (analogRead(A1) > 700) {
+        lcd.print("Bright   ");            //If you get a reading of > 700, write Bright on the LCD
+      } else if (analogRead(A1) > 550) {
+        lcd.print("Normal   ");            //If the reading is > 550 and < or = to 700, write Normal
+      } else {
+        lcd.print("Dark     ");            //If the reading is below 500, write Dark
+      }
+    }
+
+    //RGB led
+    //If either the touch sensor is touched scroll through the RGB LED, otherwise, turn it off
+    if (digitalRead(touch) == HIGH) {
+      if (mil > ledt) {
+        ledt = mil + 120;
+        leds++;
+        if (leds == 1) {
+          digitalWrite(9, HIGH);
+          digitalWrite(11, LOW);
+        } else if (leds == 2) {
+          digitalWrite(10, HIGH);
+          digitalWrite(9, LOW);
+        } else {
+          digitalWrite(11, HIGH);
+          digitalWrite(10, LOW);
+        }
+        if (leds == 3) {
+          leds = 0;
+        }
+      }
+    } else {
+      digitalWrite(9, LOW);
+      digitalWrite(10, LOW);
+      digitalWrite(11, LOW);
+    }
+}
+
+void interactive(){
+
+}
 
 //This is the intro function that gets called once on boot.  It does the little animations on the LCD
 void intro() {
@@ -355,7 +400,6 @@ void intro() {
   }
 }
 
-
 //This function makes the little icons that display on the LCD during the temperature/humidity readings
 void makeIcon() {
   const static uint8_t icon_temp0[] PROGMEM = {
@@ -460,14 +504,14 @@ void mario() {
     // divided by the note type.
     //e.g. quarter note = 1000 / 4, eighth note = 1000/8, etc.
     int noteDuration = 500 / Mario_Notes[thisNote];
-    tone(6, Mario_melody[thisNote], noteDuration);
+    tone(buz, Mario_melody[thisNote], noteDuration);
 
     // to distinguish the notes, set a minimum time between them.
     // the note's duration + 30% seems to work well:
     int pauseBetweenNotes = noteDuration * 1.30;
     delay(pauseBetweenNotes);
     // stop the tone playing:
-    noTone(6);
+    notone(buz);
   }
 
 }
@@ -586,7 +630,7 @@ void tetris() {
       e.g. quarter note = 1000 / 4, eighth note = 1000/8, etc.
     */
     int noteDuration = 1000 / pgm_read_word(&noteDurations[thisNote]); /* Changed to use progmem */
-    tone(6, pgm_read_word(&melody[thisNote]), noteDuration);
+    tone(buz, pgm_read_word(&melody[thisNote]), noteDuration);
 
     /*
       to distinguish the notes, set a minimum time between them.
@@ -595,7 +639,25 @@ void tetris() {
     int pauseBetweenNotes = noteDuration * 1.30;
     delay(pauseBetweenNotes);
 
-    noTone(6); //stop the tone playing:
+    notone(buz); //stop the tone playing:
   }
   digitalWrite(6, LOW);
+}
+
+
+void changeMode(){
+  //Play the sound for changing modes
+  for (int thisNote = 0; thisNote < 8; thisNote++) {
+  // to calculate the note duration, take one second divided by the note type.
+  //e.g. quarter note = 1000 / 4, eighth note = 1000/8, etc.
+  int noteDuration = 1000 / noteDurations[thisNote];
+  tone(buz, melody[thisNote], noteDuration);
+
+  // to distinguish the notes, set a minimum time between them.
+  // the note's duration + 30% seems to work well:
+  int pauseBetweenNotes = noteDuration * 1.30;
+  delay(pauseBetweenNotes);
+  // stop the tone playing:
+  noTone(buz);
+}
 }
