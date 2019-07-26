@@ -14,7 +14,7 @@ LiquidCrystal_I2C lcd(0x27, 16, 2);   //The address of the LCD Screen and how ma
 //This is Dan's interactive mode.
 //0 is the default mode where everything works as normal in the Everything together sketch
 //1 will accept input from Node-red or the serial monitor's input.
-int mode = 0;
+int mode = 1;
 
 //sounds for switching modes
 int melody[] = {
@@ -55,6 +55,7 @@ long lcdt = 0;
 long dist = 0;
 long lit = 0;
 long analogt =0;
+long mict = 0;
 
 float temp, humi;
 unsigned long dura = 0;
@@ -63,6 +64,11 @@ int leds = 0;
 int bar = 0;
 int oldbar = 0;         //The previous reading of the sliderbar
 int touchwas = false;   //Save whether the touch sensor was last in a touched or not state
+
+//Microphone
+const int sampleWindow = 125; // sample period milliseconds (125 mS = 8 Hz)
+int soundValue = 0;         // store the value of the sound sensor
+double threshold = 2.0;         // set clapping sound threshold voltage value
 
 //These variables are used to receive data from the PC/Raspberry Pi
 const byte numChars = 32;
@@ -225,6 +231,44 @@ void both(){
             Serial.println("Dark");
           }
         }
+
+            if(mil > mict){
+        mict = mil + 300;
+        unsigned long start= millis();  // start sampling
+        unsigned int peakToPeak = 0;    // Amplitude Value Variables
+        unsigned int signalMax = 0;
+        unsigned int signalMin = 1024;
+
+
+ // collect data for 125 milliseconds.
+ while (millis() - start < sampleWindow)
+ {
+      soundValue = analogRead(3); // specify analogue pin number 3.
+      if (soundValue < 1024)  // Read data up to the ADC maximum (1024=10bit).
+      {
+         if (soundValue > signalMax)
+         {
+           signalMax = soundValue;  // Store the maximum sound value in the signalMax variable.
+         }
+         else if (soundValue < signalMin)
+         {
+           signalMin = soundValue;  // store the sound minimum in the variable (signalMin).
+         }
+     }
+ }
+ peakToPeak = signalMax - signalMin;  // calculate peak-to-peak amplitude
+ double volts = (peakToPeak * 5) / 1024; // convert the ADC value to a voltage value. Reference Voltage 5V
+      if(volts <= 3){
+        Serial.println("sound=1");
+      }else if(volts > 3 && volts <=3.5){
+        Serial.println("sound=2");
+      }else if(volts > 3.5 && volts < 4){
+        Serial.println("sound=3");
+      }else{
+        Serial.println("sound=4");
+      }
+      }
+
     }
 
 void standard(){ //This is the standard "mode" that coding array boots into
