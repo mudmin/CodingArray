@@ -353,10 +353,12 @@ void interactive(){  //This is the interactive mode!
       oldbar = bar; //save this new reading
     }
     touched = digitalRead(touch);
-    if(touched == 0){
+    if(touched == 0 && touchwas == true){
       Serial.println("touch=false");
-    }else{
+      touchwas = false;
+    }else if(touched == 1 && touchwas == false){
       Serial.println("touch=true");
+      touchwas = true;
     }
     analogt = mil + 1000; //tell the loop to read the analog sensor again in one second
   }
